@@ -1,0 +1,412 @@
+.Dd September 22, 2026
+.Dt SW 1
+.Os PUtils
+.Sh NAME
+.Nm sw ,
+.Nm switch
+.Nd switch the terminal into another operating system's shell profile
+.Sh SYNOPSIS
+.Nm
+.Op Fl l Ar dir
+.Op Ar profile
+.Op Fl c Ar command
+.Nm
+.Cm exit
+.Nm
+.Cm profile
+.Cm add | rm | list | inspect | ins | default | set | build | help
+.Op Ar args ...
+.Nm
+.Cm inspect | ins
+.Ar profile
+.Op Cm tool Op Cm add | rm | remove Ar tool ...
+.Nm
+.Cm os
+.Sh DESCRIPTION
+.Nm
+opens a separate shell
+.Em profile
+that looks and behaves like another system while you keep working on your
+own files.
+Out of the box there is one profile,
+.Cm debian13 ,
+which gives you Debian GNU/Linux 13 (trixie) with its standard set of tools
+and its standard shell,
+.Xr bash 1 ,
+so you can practise in the same environment as a university's Debian
+machines.
+.Pp
+Inside a profile none of your own configuration applies: no
+.Pa ~/.zshrc ,
+no Homebrew, no packages you installed yourself.
+You get only the tools of the chosen system plus the tools you add to that
+profile, and the shell starts with that system's own defaults.
+To go back, type
+.Ic exit
+or
+.Ic sw exit .
+.Pp
+.Nm switch
+is the same program under a second name.
+.Ss How it works
+.Bl -tag -width "macOS profiles"
+.It Linux profiles
+run the real distribution in a throw-away Docker container, so
+.Xr uname 1 ,
+.Pa /etc/os-release ,
+the hostname, the GNU tools and the package names are genuinely those of
+that system.
+Your user name, uid and gid are the same as on the Mac.
+.Pa /Users
+and
+.Pa /Volumes
+are shared at the same paths, so
+.Ev HOME
+is your real home and the shell starts in the directory you were in.
+Each profile has its own image,
+.Sy sw- Ns Ar profile ,
+built the first time you switch to it and rebuilt whenever its tools change.
+Docker Desktop is started if it is not running.
+.It macOS profiles
+run on the Mac itself with a
+.Ev PATH
+of only
+.Pa /usr/bin ,
+.Pa /bin ,
+.Pa /usr/sbin ,
+.Pa /sbin
+and the Homebrew formulae you share with the profile, and with the
+system's standard shell,
+.Xr zsh 1 .
+.El
+.Sh OPTIONS
+.Bl -tag -width "-c command"
+.It Fl l Ar dir , Fl \-limit Ar dir
+Limit the profile to
+.Ar dir :
+it becomes the home directory, so
+.Ev HOME ,
+.Ql ~
+and a bare
+.Ic cd
+all point at it.
+In a Linux profile
+.Ar dir
+is mounted as
+.Pa /home/ Ns Ar user ,
+like a university account, and nothing else of your file system is
+visible.
+If you start inside
+.Ar dir ,
+the shell starts at the same place inside the new home.
+.Ar dir
+may use
+.Ql ~ ,
+.Ql ~user ,
+.Ql $VAR
+and
+.Ql ${VAR} ,
+which
+.Nm
+expands itself, so they also work when quoted or stored in a profile.
+It is created if it does not exist.
+On a macOS profile only
+.Ev HOME
+and the starting directory change; the rest of the disk stays reachable.
+.It Fl c Ar command
+Run
+.Ar command
+with the profile's shell and exit, instead of starting an interactive shell.
+.It Fl h , Fl \-help
+Show a short help.
+.It Fl V , Fl \-version
+Show the version.
+.El
+.Sh COMMANDS
+.Bl -tag -width Ds
+.It Nm Op Ar profile
+Switch to
+.Ar profile ,
+or to the default profile when it is left out.
+.It Nm Cm exit
+Leave the profile.
+It works only inside a profile, where it is the same as
+.Ic exit .
+.It Nm Cm profile add Ar name Oo Ar os Oc Oo Ar tool ... Oc Op Ar options
+Create a profile called
+.Ar name
+(lowercase letters, digits,
+.Ql \&. ,
+.Ql _
+and
+.Ql - )
+for the system
+.Ar os
+(see
+.Nm Cm os ;
+you are asked if it is left out) with the given extra
+.Ar tool Ns s.
+Options:
+.Bl -tag -width "-H, --hostname name"
+.It Fl s , Fl \-shell Ar shell
+Run
+.Ar shell
+instead of the system's standard shell.
+Add its package as a tool first.
+.It Fl H , Fl \-hostname Ar name
+The hostname the shell sees (Linux profiles).
+.It Fl l , Fl \-home Ar dir
+Always limit this profile to
+.Ar dir ,
+as if
+.Fl l Ar dir
+were given every time.
+Variables are kept unexpanded and expanded at each switch.
+.It Fl a , Fl \-arch Ar arch
+.Cm amd64
+or
+.Cm arm64
+(Linux profiles).
+The default is the Mac's own architecture; use
+.Cm amd64
+to match x86 lab machines exactly, at some cost in speed.
+.It Fl m , Fl \-mount Ar dir
+Share
+.Ar dir
+with a Linux profile at the same path.
+Repeatable; replaces the default
+.Pa /Users
+and
+.Pa /Volumes .
+.It Fl \-no-mounts
+Share nothing except a
+.Fl l
+home.
+.El
+.It Nm Cm profile rm Ar name Op Fl f
+Delete a profile together with its image, shell history and
+.Pa custom.sh .
+Asks first unless
+.Fl f
+is given.
+The built-in
+.Cm debian13
+profile and the current default profile cannot be deleted.
+.It Nm Cm profile list
+List the profiles.
+.Ql *
+marks the default.
+.It Nm Cm profile inspect Ar name , Nm Cm profile ins Ar name
+The same as
+.Nm Cm inspect Ar name .
+.It Nm Cm profile default Op Ar name
+Show the default profile, or make
+.Ar name
+the default.
+.It Nm Cm profile set Ar name key Op Ar value
+Change one setting of a profile:
+.Cm os ,
+.Cm shell ,
+.Cm hostname ,
+.Cm home ,
+.Cm arch
+or
+.Cm mounts .
+.Cm mounts
+takes a colon-separated list of directories, or
+.Cm none .
+Leaving out
+.Ar value
+resets the setting to its default.
+Changing
+.Cm os
+to a system with a different package manager drops the profile's tools.
+.It Nm Cm profile build Ar name Op Fl \-pull
+Rebuild a Linux profile's image now.
+With
+.Fl \-pull
+the base image is updated first, which picks up the distribution's latest
+updates.
+.It Nm Cm profile help
+Show help for the
+.Cm profile
+commands.
+.It Nm Cm inspect Ar name , Nm Cm ins Ar name
+Show everything about a profile: its system, shell, hostname, home, shared
+directories, image state and tools.
+.It Nm Cm inspect Ar name Cm tool
+Show only the profile's tools: its base toolset, then one added tool per
+line.
+.It Nm Cm inspect Ar name Cm tool add Ar tool ...
+Add tools to a profile.
+For Linux profiles a tool is a package of that distribution
+.Po
+.Xr apt 8 ,
+dnf, pacman or apk
+.Pc ,
+installed into the profile's image straight away; if a package cannot be
+installed, the profile is left unchanged.
+For macOS profiles a tool is an installed Homebrew formula; its programs
+are shared with the profile.
+.Cm @all
+shares every Homebrew formula.
+.It Nm Cm inspect Ar name Cm tool rm Ar tool ... , Nm Cm inspect Ar name Cm tool remove Ar tool ...
+Remove tools from a profile.
+.It Nm Cm os
+List the systems a profile can be.
+.El
+.Sh SYSTEMS
+.Bl -tag -width "ubuntu24.04" -compact
+.It Cm debian13
+Debian GNU/Linux 13 (trixie), bash.
+Base toolset: every package of priority required, important and standard,
+which is what the Debian installer's
+.Dq standard system utilities
+installs, including
+.Xr man 1 ,
+.Xr less 1 ,
+.Xr nano 1 ,
+.Xr vim 1
+(vim.tiny) and bash completion.
+.It Cm debian12
+Debian GNU/Linux 12 (bookworm), same base toolset.
+.It Cm ubuntu24.04 , Cm ubuntu22.04
+Ubuntu LTS, bash; ubuntu-minimal and ubuntu-standard, unminimized.
+.It Cm fedora
+Fedora Linux, bash; the @core group with man pages.
+.It Cm arch
+Arch Linux (always amd64), bash; the base group with man pages.
+.It Cm alpine
+Alpine Linux, ash; BusyBox with man pages.
+.It Cm macos
+This Mac, zsh; only the macOS system tools.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/sw/config
+Which profile is the default.
+.It Pa ~/.config/sw/profiles/ Ns Ar name Ns Pa /profile
+The profile's settings, one
+.Ar key Ns = Ns Ar value
+per line;
+.Cm mount
+and
+.Cm tool
+may repeat.
+.It Pa ~/.config/sw/profiles/ Ns Ar name Ns Pa /custom.sh
+Your own settings for the profile (aliases, prompt, exports).
+The profile's shell sources it at every switch; it is never overwritten.
+.It Pa ~/.config/sw/profiles/ Ns Ar name Ns Pa /history
+The profile's shell history, kept apart from your normal one.
+.It Pa ~/.config/sw/profiles/ Ns Ar name Ns Pa /rc , .zshrc , .zshenv
+Start-up files generated at every switch.
+They load the system's own
+.Pa /etc/profile
+and
+.Pa /etc/skel/.bashrc ,
+then
+.Pa custom.sh ,
+and define
+.Ic sw exit .
+Inside a Linux profile this directory is
+.Pa /var/lib/sw .
+.It Pa ~/.config/sw/profiles/ Ns Ar name Ns Pa /Dockerfile
+The recipe of the profile's image.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width XDG_CONFIG_HOME
+.It Ev SW_HOME
+Use this directory instead of
+.Pa ~/.config/sw .
+.It Ev XDG_CONFIG_HOME
+If set,
+.Nm
+keeps its files in
+.Pa $XDG_CONFIG_HOME/sw .
+.It Ev SW_PROFILE , Ev SW_OS
+Set inside a profile to its name and system.
+.Nm
+refuses to switch again while
+.Ev SW_PROFILE
+is set.
+.El
+.Pp
+Inside a profile the environment is rebuilt from scratch: only
+.Ev HOME ,
+.Ev USER ,
+.Ev LOGNAME ,
+.Ev SHELL ,
+.Ev TERM
+and the time zone come from the Mac, and
+.Ev LANG
+is
+.Ql C.UTF-8
+on Linux.
+.Sh EXIT STATUS
+.Nm
+exits with the status of the profile's shell or
+.Ar command ,
+or 1 if it cannot switch.
+.Sh EXAMPLES
+Switch to Debian 13 in the current directory, then leave again:
+.Bd -literal -offset indent
+$ sw
+you@debian:~/Desktop$ gcc --version
+bash: gcc: command not found
+you@debian:~/Desktop$ exit
+.Ed
+.Pp
+Give the Debian profile the tools a C course needs:
+.Bd -literal -offset indent
+$ sw inspect debian13 tool add gcc make gdb valgrind
+$ sw inspect debian13 tool
+.Ed
+.Pp
+Practise in a home directory of its own, as on a lab machine:
+.Bd -literal -offset indent
+$ sw -l ~/uni/home
+$ sw -l '$HOME/uni/home' debian13
+.Ed
+.Pp
+A profile shaped like the lab machines, always limited to one home:
+.Bd -literal -offset indent
+$ sw profile add lab debian13 gcc make git -H lab-pc01 -a amd64 \e
+      -l '$HOME/uni/home'
+$ sw lab
+.Ed
+.Pp
+A clean macOS shell that only has git from Homebrew:
+.Bd -literal -offset indent
+$ sw profile add mac macos git
+$ sw mac
+.Ed
+.Pp
+Run a single command on Ubuntu without staying there:
+.Bd -literal -offset indent
+$ sw profile add ubuntu ubuntu24.04
+$ sw ubuntu -c 'lsb_release -a'
+.Ed
+.Sh CAVEATS
+A Linux profile is a container, not a virtual machine: the kernel is Docker
+Desktop's Linux kernel, you are not root, services such as systemd do not
+run, and anything installed from inside the shell is lost at
+.Ic exit .
+Add tools with
+.Nm Cm inspect Ar name Cm tool add
+instead.
+.Pp
+Only directories Docker Desktop shares (by default
+.Pa /Users ,
+.Pa /Volumes ,
+.Pa /private
+and
+.Pa /tmp )
+can be mounted into a Linux profile.
+.Sh SEE ALSO
+.Xr bash 1 ,
+.Xr zsh 1 ,
+.Xr docker 1 ,
+.Xr brew 1
+.Sh AUTHORS
+Part of PUtils, by
+.An Pr1nted .
