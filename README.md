@@ -21,7 +21,13 @@ Homebrew formulae you pick. Full details: `man sw`.
 
 ## Install
 
-Requires a C compiler and, for Linux profiles, Docker Desktop.
+With Homebrew (the tap is private, so your GitHub login via `gh` must be set up):
+
+```
+brew install putils/tap/switch
+```
+
+From source (needs a C compiler):
 
 ```
 make
@@ -29,7 +35,14 @@ make install            # into ~/.local (PREFIX=/usr/local to change)
 make test
 ```
 
-This installs `sw`, the `switch` alias, and the `sw(1)` manual.
+Either way you get `sw`, the `switch` alias, and the `sw(1)` manual. Linux
+profiles need Docker Desktop.
+
+## Releasing
+
+Bump `SW_VERSION` in `src/sw.h`, tag `vX.Y.Z`, push the tag, then update `url`
+tag and `revision` in `Formula/switch.rb` of
+[PUtils/homebrew-tap](https://github.com/PUtils/homebrew-tap).
 
 ## Commands
 
